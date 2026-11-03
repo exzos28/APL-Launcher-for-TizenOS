@@ -78,7 +78,7 @@ Vetro intercepts one device at a time: pick the remote in Vetro › Remapper (se
 
 | Feature | Status | Notes |
 |---|---|---|
-| Control Center on the launcher and over any app | ✅ | Over apps it is drawn by APL Overlay (needs the C# compiler and .NET 6 at install time). |
+| Control Center on the launcher and over any app | ✅ | Over apps it is drawn by APL Overlay. |
 | Sleep, Wi-Fi, Do Not Disturb, Sleep Timer, Brightness | ✅ | |
 | Audio output and Bluetooth headphones (AirPods…) | ✅ | |
 | Settings covering every Samsung settings page | ✅ | Real picture controls (backlight, contrast, sharpness, colour, local dimming); a few pages open Samsung's own settings. |
