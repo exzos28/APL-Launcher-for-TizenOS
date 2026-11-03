@@ -72,8 +72,25 @@ jobs:
           chmod +x "$TIZEN_SDK"/tools/tizen-core/{tz,tgn,ninja,web-privilege-checker}
           "$TIZEN_SDK/tools/tizen-core/tz" --version
 
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      # APL Overlay targets net6.0-tizen9.0, which needs Samsung's Tizen workload.
+      - name: Install the Tizen .NET workload
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/workload-install.sh" \
+            https://raw.githubusercontent.com/Samsung/Tizen.NET/main/workload/scripts/workload-install.sh
+          sudo bash "$RUNNER_TEMP/workload-install.sh" -d "$DOTNET_ROOT"
+          dotnet workload list
+
+      - name: Build APL Overlay
+        run: |
+          mkdir -p dist
+          bash tools/make-overlay.sh dist/APLOverlay.tpk
+
       - name: Build the package
-        run: bash tools/make-package.sh dist
+        run: bash tools/make-package.sh dist/APLOverlay.tpk dist
 
       - uses: actions/upload-artifact@v4
         with:

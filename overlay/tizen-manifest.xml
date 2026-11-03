@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns="http://tizen.org/ns/packages" api-version="9.0" package="apl.launcher.overlay" version="1.0.0">
+<manifest xmlns="http://tizen.org/ns/packages" api-version="9.0" package="APLauncher" version="1.0.0">
   <profile name="tv" />
-  <ui-application appid="apl.launcher.overlay"
+  <ui-application appid="APLauncher.Overlay"
                   exec="APLOverlay.dll"
                   type="dotnet"
                   multiple="false"
@@ -14,7 +14,33 @@
     <metadata key="http://tizen.org/metadata/prefer_dotnet_aot" value="true" />
     <splash-screens />
   </ui-application>
+  <!-- After a full start-up, puts the launcher on screen (boot/Program.cs). A .NET service: the
+       web bridge's on-boot is dropped in a hybrid package. -->
+  <service-application appid="APLauncher.Boot"
+                       exec="APLBoot.dll"
+                       type="dotnet"
+                       multiple="false"
+                       taskmanage="false"
+                       nodisplay="true"
+                       on-boot="true"
+                       auto-restart="false"
+                       api-version="9.0">
+    <label>APL Boot</label>
+  </service-application>
+  <!-- The launcher's relay to Vetro (bridge/Program.cs), under the web bridge's id: in the hybrid
+       package the web service never runs, and tools/make-package.sh drops it from config.xml. -->
+  <service-application appid="APLauncher.Bridge"
+                       exec="Bridge.dll"
+                       type="dotnet"
+                       multiple="false"
+                       taskmanage="false"
+                       nodisplay="true"
+                       auto-restart="false"
+                       api-version="9.0">
+    <label>APL Launcher Bridge</label>
+  </service-application>
   <privileges>
+    <privilege>http://tizen.org/privilege/appmanager.launch</privilege>
     <privilege>http://tizen.org/privilege/internet</privilege>
     <privilege>http://tizen.org/privilege/bluetooth</privilege>
     <privilege>http://tizen.org/privilege/network.get</privilege>

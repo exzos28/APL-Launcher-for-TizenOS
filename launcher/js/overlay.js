@@ -15,7 +15,7 @@
     "use strict";
 
     var APL = global.APL, sys = APL.sys;
-    var OVERLAY = "apl.launcher.overlay", LAUNCHER = "APLauncher.Home", HOME_RULE = "physical_63";
+    var OVERLAY = "APLauncher.Overlay", LAUNCHER = "APLauncher.Home", HOME_RULE = "physical_63";
     var installed = false, light = false;
 
     /* The apps the Echo can open: "Name=app:id", Home Screen first (the first ones
