@@ -359,6 +359,30 @@
        the other requests and sends the answer back through a trusted Tizen message port
        (reserved for apps signed with the same certificate; no network port is opened). */
     var BRIDGE_ID = "APLauncher.Bridge", BRIDGE_PORT = "APL_BRIDGE";
+    /* What the launcher does with the bridge, in wgt-private/launcher-bridge.log (read as root through
+       Vetro): the screen's own log cannot be read on a retail set. Lines are queued and appended. */
+    var blogQueue = [], blogBusy = false, blogCount = 0;
+    function blog(msg) {
+        try { if (global.console) console.log("[bridge] " + msg); } catch (e) {}
+        if (PREVIEW || !tz || !tz.filesystem || blogCount > 400) return;
+        blogCount++;
+        blogQueue.push(new Date().toISOString().substr(11, 12) + " " + msg + "\n");
+        if (blogBusy) return;
+        blogBusy = true;
+        function done() { blogBusy = false; if (blogQueue.length) blog.flush(); }
+        blog.flush = function () {
+            var text = blogQueue.join(""); blogQueue = [];
+            try {
+                tz.filesystem.resolve("wgt-private", function (dir) {
+                    var f = null;
+                    try { f = dir.resolve("launcher-bridge.log"); } catch (e) { try { f = dir.createFile("launcher-bridge.log"); } catch (e2) {} }
+                    if (!f) { done(); return; }
+                    f.openStream("a", function (s) { try { s.write(text); s.close(); } catch (e) {} done(); }, done, "UTF-8");
+                }, done, "rw");
+            } catch (e) { done(); }
+        };
+        blog.flush();
+    }
     var replyPort = null, pending = {}, seq = 0, bridgeDownUntil = 0, bridgeStarting = null;
     /* The service takes a few seconds to open its port after it starts: wait until it is there. */
     function waitBridge(until) {
@@ -371,6 +395,7 @@
     }
     function startBridge() {
         if (bridgeStarting) return bridgeStarting;
+        blog("starting " + BRIDGE_ID);
         function done() { bridgeStarting = null; }
         bridgeStarting = new Promise(function (resolve) {
             function plain() { try { tz.application.launch(BRIDGE_ID, resolve, resolve); } catch (e) { resolve(); } }
@@ -379,15 +404,21 @@
                                                 BRIDGE_ID, resolve, plain);
             } catch (e) { plain(); }
         }).then(function () { return waitBridge(Date.now() + 12000); });
+        bridgeStarting.then(function () { blog(BRIDGE_ID + " port " + BRIDGE_PORT + " found"); },
+                            function (e) { blog(BRIDGE_ID + " port " + BRIDGE_PORT + " not found after 12 s: " + (e && e.message)); });
         bridgeStarting.then(done, done);
         return bridgeStarting;
     }
     function ensureReplyPort() {
         if (replyPort) return replyPort;
-        replyPort = tz.messageport.requestTrustedLocalMessagePort("APL_BRIDGE_REPLY");
+        try { replyPort = tz.messageport.requestTrustedLocalMessagePort("APL_BRIDGE_REPLY"); }
+        catch (e) { blog("reply port APL_BRIDGE_REPLY failed: " + (e && (e.name + " " + e.message))); throw e; }
+        blog("reply port APL_BRIDGE_REPLY open (trusted " + replyPort.isTrusted + ", app " + (function () {
+            try { return tz.application.getCurrentApplication().appInfo.id; } catch (e) { return "?"; } })() + ")");
         replyPort.addMessagePortListener(function (data) {
             var m = {};
             for (var i = 0; i < data.length; i++) m[data[i].key] = data[i].value;
+            blog("answer " + m.id + " part " + m.part + "/" + m.parts + " status " + m.status + (pending[m.id] ? "" : " (nobody waits)"));
             var p = pending[m.id];
             if (!p) return;
             // Large answers arrive in several pieces
@@ -406,6 +437,7 @@
                 var remote = tz.messageport.requestTrustedRemoteMessagePort(BRIDGE_ID, BRIDGE_PORT);   // throws if not started
                 ensureReplyPort();
                 var id = String(++seq);
+                blog("request " + id + " " + method + " " + path);
                 pending[id] = { resolve: resolve, chunks: [], got: 0, timer: setTimeout(function () { delete pending[id]; reject(new Error("timeout")); }, 60000) };
                 // No port attached: the service answers through its own trusted port (see bridge/service.js)
                 remote.sendMessage([{ key: "id", value: id }, { key: "method", value: method },
@@ -413,6 +445,7 @@
             });
         }
         return send().catch(function (e) {
+            blog("send " + method + " " + path + ": " + (e && (e.name + " " + e.message)));
             if (e && e.message === "timeout") throw e;
             return startBridge().then(send);                 // bridge not started yet: start it
         }).catch(function (e) {

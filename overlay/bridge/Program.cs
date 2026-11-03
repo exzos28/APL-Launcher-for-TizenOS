@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Sockets;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -31,6 +32,15 @@ namespace APL.Bridge
         private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(150);
         private static readonly Regex Allowed = new Regex(@"^/(status|screen|tv-settings|tv-menu|exec|components/action|control|apps)(/|\?|$)");
 
+        // The platform's message port API itself, to read its error codes (MessagePort.Send only says
+        // "Can't send message"): TIZEN_ERROR_IO_ERROR -5, INVALID_PARAMETER -22, OUT_OF_MEMORY -12,
+        // PORT_NOT_FOUND / CERTIFICATE_NOT_MATCH / MAX_EXCEEDED / RESOURCE_UNAVAILABLE = 0xfe4f0000 | 1..4.
+        [DllImport("libcapi-message-port.so.0")] private static extern int message_port_check_trusted_remote_port(string appId, string port, out bool exist);
+        [DllImport("libcapi-message-port.so.0")] private static extern int message_port_check_remote_port(string appId, string port, out bool exist);
+        [DllImport("libcapi-message-port.so.0")] private static extern int message_port_send_trusted_message(string appId, string port, IntPtr bundle);
+        [DllImport("libcapi-message-port.so.0")] private static extern int message_port_send_message(string appId, string port, IntPtr bundle);
+        private bool diagnosed;
+
         private MessagePort port;
         private readonly object sendLock = new object();
         private Timer idle;
@@ -43,7 +53,9 @@ namespace APL.Bridge
                 port = new MessagePort(PortName, true);
                 port.MessageReceived += OnMessage;
                 port.Listen();
-                Note("listening on " + PortName + ", main thread " + Environment.CurrentManagedThreadId + ", context " + (SynchronizationContext.Current?.GetType().Name ?? "none"));
+                Note("listening on " + PortName + ", main thread " + Environment.CurrentManagedThreadId + ", context " + (SynchronizationContext.Current?.GetType().Name ?? "none") +
+                     ", my id " + SafeAppId());
+                CheckReplyPort("at start");
             }
             catch (Exception ex) { Note("listen failed: " + ex.Message); }
             idle = new Timer(delegate { Note("idle, exiting"); try { Exit(); } catch (Exception) { } }, null, IdleAfter, Timeout.InfiniteTimeSpan);
@@ -107,10 +119,12 @@ namespace APL.Bridge
                         m.AddItem("parts", parts.ToString());
                         m.AddItem("body", body.Substring(i * Chunk, Math.Min(Chunk, body.Length - i * Chunk)));
                         port.Send(m, LauncherId, ReplyPort);
+                        if (i == 0) Note("answer " + id + " sent: status " + status + ", " + body.Length + " chars in " + parts + " part(s)");
                     }
                     catch (Exception ex)
                     {
                         Note("answer " + id + " (" + path(ex) + "), thread " + Environment.CurrentManagedThreadId + ": " + ex.GetType().Name + " " + ex.Message + " 0x" + ex.HResult.ToString("x"));
+                        if (!diagnosed) { diagnosed = true; CheckReplyPort("after a failed answer"); TrySend(); }
                         return;
                     }
                 }
@@ -142,6 +156,46 @@ namespace APL.Bridge
                 if (m.Success) status = int.Parse(m.Groups[1].Value);
                 return (status, split < 0 ? "" : text.Substring(split + 4));
             }
+        }
+
+        private static string SafeAppId()
+        {
+            try { return Current.ApplicationInfo.ApplicationId + " / package " + Current.ApplicationInfo.PackageId; } catch (Exception ex) { return "? (" + ex.Message + ")"; }
+        }
+
+        private static string Code(int rc) { return rc == 0 ? "0" : rc + " (0x" + rc.ToString("x8") + ")"; }
+
+        /// <summary>Is the launcher's reply port there, as a trusted and as a plain port?</summary>
+        private static void CheckReplyPort(string when)
+        {
+            try
+            {
+                bool trusted, plain;
+                int rt = message_port_check_trusted_remote_port(LauncherId, ReplyPort, out trusted);
+                int rp = message_port_check_remote_port(LauncherId, ReplyPort, out plain);
+                Note("reply port " + LauncherId + "/" + ReplyPort + " " + when + ": trusted check rc " + Code(rt) + " exist " + trusted +
+                     "; plain check rc " + Code(rp) + " exist " + plain);
+            }
+            catch (Exception ex) { Note("reply port check: " + ex.GetType().Name + " " + ex.Message); }
+        }
+
+        /// <summary>One small message through the platform API directly, for its error code.</summary>
+        private static void TrySend()
+        {
+            try
+            {
+                var m = new Bundle();
+                m.AddItem("id", "diag");
+                m.AddItem("status", "0");
+                m.AddItem("part", "0");
+                m.AddItem("parts", "1");
+                m.AddItem("body", "");
+                IntPtr h = m.SafeBundleHandle.DangerousGetHandle();
+                int rt = message_port_send_trusted_message(LauncherId, ReplyPort, h);
+                int rp = message_port_send_message(LauncherId, ReplyPort, h);
+                Note("direct send: trusted rc " + Code(rt) + ", plain rc " + Code(rp));
+            }
+            catch (Exception ex) { Note("direct send: " + ex.GetType().Name + " " + ex.Message); }
         }
 
         private static string path(Exception ex) { return ex.InnerException != null ? ex.InnerException.Message : "-"; }

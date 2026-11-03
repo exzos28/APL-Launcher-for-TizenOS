@@ -37,6 +37,9 @@
     <tizen:privilege name="http://tizen.org/privilege/tv.window"/>
     <tizen:privilege name="http://tizen.org/privilege/system"/>
     <tizen:privilege name="http://tizen.org/privilege/internet"/>
+    <!-- wgt-private/launcher-bridge.log (system.js, blog): what the launcher does with its bridge -->
+    <tizen:privilege name="http://tizen.org/privilege/filesystem.read"/>
+    <tizen:privilege name="http://tizen.org/privilege/filesystem.write"/>
     <tizen:privilege name="http://developer.samsung.com/privilege/productinfo"/>
     <tizen:privilege name="http://developer.samsung.com/privilege/network.public"/>
     <tizen:privilege name="http://developer.samsung.com/privilege/avinfo"/>
