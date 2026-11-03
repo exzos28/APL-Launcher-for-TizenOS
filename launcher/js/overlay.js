@@ -55,6 +55,18 @@
         } catch (e) {}
     }
 
+    /* The Smart Hub tile opens Samsung's home on purpose: the overlay leaves it on screen until
+       something else comes in front (overlay/Program.cs, apl_action samsung_home). */
+    function passSamsungHome() {
+        if (!installed || sys.PREVIEW) return;
+        try {
+            var T = global.tizen;
+            var ctl = new T.ApplicationControl("http://tizen.org/appcontrol/operation/default", null, null, null,
+                                               [new T.ApplicationControlData("apl_action", ["samsung_home"])]);
+            T.application.launchAppControl(ctl, OVERLAY, function () {}, function () {});
+        } catch (e) {}
+    }
+
     /* Keys handed to the overlay while it is not there: Home goes back to the launcher, the others to Samsung. */
     function checkHomeRule() {
         sys.vetroGet("/remap").then(function (r) {
@@ -90,6 +102,7 @@
             send();
         },
         refresh: send,
+        passSamsungHome: passSamsungHome,
         isInstalled: function () { return installed; }
     };
 })(window);
