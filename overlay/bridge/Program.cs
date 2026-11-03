@@ -118,8 +118,12 @@ namespace APL.Bridge
                         m.AddItem("part", i.ToString());
                         m.AddItem("parts", parts.ToString());
                         m.AddItem("body", body.Substring(i * Chunk, Math.Min(Chunk, body.Length - i * Chunk)));
-                        port.Send(m, LauncherId, ReplyPort);
-                        if (i == 0) Note("answer " + id + " sent: status " + status + ", " + body.Length + " chars in " + parts + " part(s)");
+                        // Without a local port attached: with one (MessagePort.Send, whichever port) the
+                        // screen refuses every message to the launcher's page ("Can't send message"),
+                        // as the web bridge's comment says of Tizen 9's router.
+                        int rc = message_port_send_trusted_message(LauncherId, ReplyPort, m.SafeBundleHandle.DangerousGetHandle());
+                        GC.KeepAlive(m);
+                        if (rc != 0) { Note("answer " + id + " part " + i + ": rc " + Code(rc)); return; }
                     }
                     catch (Exception ex)
                     {
