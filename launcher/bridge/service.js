@@ -34,6 +34,24 @@ var BOOT_WINDOW_S = 240, LAUNCH_TRIES = 5;
 
 var port = null, idle = null, openedAtBoot = false;
 
+/* A log of what the service does, for a screen whose system log cannot be read: /tmp (any root
+   shell, through Vetro) and the package's data folder, next to the Overlay's overlay.log. */
+var LOG_FILES = ["/tmp/apl-bridge.log", "/opt/usr/home/owner/apps_rw/APLauncher/data/bridge.log"];
+function note(message) {
+    var line = new Date().toISOString().substr(11, 12) + " " + message + "\n";
+    LOG_FILES.forEach(function (f) {
+        try {
+            try { if (fs.statSync(f).size > 32768) fs.unlinkSync(f); } catch (e) {}
+            fs.appendFileSync(f, line);
+        } catch (e) {}
+    });
+}
+note("loaded: node " + process.version + ", tizen " + (typeof tizen) + ", uptime " + (function () {
+    try { return fs.readFileSync("/proc/uptime", "utf8").split(" ")[0]; } catch (e) { return "?"; }
+})() + " s");
+process.on("uncaughtException", function (e) { note("uncaught: " + (e && e.stack || e)); });
+process.on("exit", function (code) { note("exit " + code); });
+
 function stopLater() {
     clearTimeout(idle);
     idle = setTimeout(function () {
@@ -62,6 +80,7 @@ function answer(id, status, body) {
 
 function onMessage(data) {
     stopLater();
+    note("request " + field(data, "method") + " " + field(data, "path"));
     var id = field(data, "id"), method = field(data, "method") || "GET", path = field(data, "path"), body = field(data, "body");
     if (!ALLOWED.test(path) || (method !== "GET" && method !== "POST")) {
         answer(id, 404, '{"error":"not relayed"}');
@@ -86,6 +105,7 @@ function relay(id, method, path, buf, retries) {
             relay(id, method, path, buf, retries - 1);
             return;
         }
+        note("Vetro unreachable: " + e.code + " " + e.message);
         answer(id, 502, JSON.stringify({ ok: false, error: "Vetro unreachable: " + e.message }));
     });
     req.setTimeout(150000, function () { req.abort(); });
@@ -97,6 +117,7 @@ function start() {
     if (port) return;
     port = tizen.messageport.requestTrustedLocalMessagePort(PORT_NAME);
     port.addMessagePortListener(onMessage);
+    note("listening on " + PORT_NAME);
 }
 
 /* Full start-up (power cut, restart): the screen comes back on its last input and,
@@ -117,8 +138,13 @@ function openLauncher(tries) {
     } catch (e) { again(); }
 }
 
-module.exports.onStart = function () { start(); openLauncher(LAUNCH_TRIES); };
+function begin(from) {
+    note(from);
+    try { start(); } catch (e) { note("start failed: " + (e && (e.name + ": " + e.message) || e)); }
+    try { openLauncher(LAUNCH_TRIES); } catch (e) { note("openLauncher failed: " + (e && e.message || e)); }
+}
+module.exports.onStart = function () { begin("onStart"); };
 // Some environments run the script without calling onStart
-try { start(); openLauncher(LAUNCH_TRIES); } catch (e) {}
-module.exports.onRequest = function () { start(); };
-module.exports.onExit = function () { clearTimeout(idle); port = null; };
+try { begin("script start"); } catch (e) {}
+module.exports.onRequest = function () { note("onRequest"); try { start(); } catch (e) { note("start failed: " + (e && e.message || e)); } };
+module.exports.onExit = function () { note("onExit"); clearTimeout(idle); port = null; };
