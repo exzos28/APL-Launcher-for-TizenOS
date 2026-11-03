@@ -84,7 +84,7 @@ NAME="apl-launcher-v$VERSION.wgt"
 cp "$WGT" "$OUT/$NAME"
 # One listing, then a here-string: grep -q on a pipe would kill unzip with SIGPIPE (pipefail).
 LIST="$(unzip -l "$OUT/$NAME")"
-echo "$LIST" | tail -n 3
+echo "$LIST" | grep -v -E " (images|res/icons|res/wgt/images)/"
 for f in config.xml index.html bridge/service.js js/boot.js js/build.js js/keys.local.js css/launcher.css icon.png author-signature.xml signature1.xml; do
     grep -q " $f\$" <<<"$LIST" || { echo "$f is missing from the .wgt" >&2; exit 1; }
 done
