@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns="http://tizen.org/ns/packages" api-version="9.0" package="apl.launcher.overlay" version="1.0.0">
+<manifest xmlns="http://tizen.org/ns/packages" api-version="9.0" package="APLauncher" version="1.0.0">
   <profile name="tv" />
-  <ui-application appid="apl.launcher.overlay"
+  <ui-application appid="APLauncher.Overlay"
                   exec="APLOverlay.dll"
                   type="dotnet"
                   multiple="false"

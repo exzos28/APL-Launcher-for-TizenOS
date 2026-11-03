@@ -89,7 +89,7 @@ jobs:
           bash tools/make-overlay.sh dist/APLOverlay.tpk
 
       - name: Build the package
-        run: bash tools/make-package.sh dist
+        run: bash tools/make-package.sh dist/APLOverlay.tpk dist
 
       - uses: actions/upload-artifact@v4
         with:
