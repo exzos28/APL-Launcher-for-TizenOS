@@ -38,7 +38,7 @@ TPK="$(find "$WORK/overlay/bin/Release" -name '*.tpk' | head -n 1)"
 [ -n "$TPK" ] || { echo "no .tpk built" >&2; exit 1; }
 LIST="$(unzip -l "$TPK")"
 echo "$LIST"
-for f in tizen-manifest.xml bin/APLOverlay.dll bin/APLBoot.dll shared/res/APLOverlay.png res/icons/check.svg res/icons/alexa-orb.svg; do
+for f in tizen-manifest.xml bin/APLOverlay.dll bin/APLBoot.dll bin/Bridge.dll shared/res/APLOverlay.png res/icons/check.svg res/icons/alexa-orb.svg; do
     grep -q " $f\$" <<<"$LIST" || { echo "$f is missing from the .tpk" >&2; exit 1; }
 done
 cp "$TPK" "$OUT"

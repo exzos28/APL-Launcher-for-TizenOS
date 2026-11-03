@@ -53,6 +53,20 @@ rsync -a \
     --exclude 'sounds/*.wav' --exclude '.DS_Store' \
     "$ROOT/launcher/" "$WORK/ui/"
 
+# The web bridge (launcher/bridge/service.js) never runs inside a hybrid package on the screen:
+# the .NET one in the Overlay's .tpk (overlay/bridge) takes its id, APLauncher.Bridge, so the web
+# service is dropped from config.xml here. APL Launcher Setup's plain .wgt keeps it.
+python3 - "$WORK/ui/config.xml" <<'PY'
+import re, sys
+p = sys.argv[1]; s = open(p, encoding="utf-8").read()
+s2, n = re.subn(r"\n?[ \t]*<!--(?:(?!-->).)*?bridge/service\.js(?:(?!-->).)*?-->", "", s, flags=re.S)
+s2, n = re.subn(r"[ \t]*<tizen:service id=\"APLauncher\.Bridge\".*?</tizen:service>\n?", "", s2, flags=re.S)
+if n != 1:
+    sys.exit("config.xml: expected one APLauncher.Bridge web service, found %d" % n)
+open(p, "w", encoding="utf-8").write(s2)
+PY
+grep -q "tizen:service" "$WORK/ui/config.xml" && { echo "a web service is left in config.xml" >&2; exit 1; }
+
 # The keys file Apps2Samsung fills in. Its `tmdb: ""` style lines are the find strings of
 # packaging/apps2samsung/*.json: keep them in sync.
 cp "$ROOT/launcher/js/keys.example.js" "$WORK/ui/js/keys.local.js"
@@ -90,7 +104,7 @@ echo "$LIST" | grep -v -E " (images|res/icons|res/wgt/images)/"
 for f in config.xml tizen-manifest.xml author-signature.xml signature1.xml \
          res/wgt/config.xml res/wgt/index.html res/wgt/bridge/service.js res/wgt/js/boot.js res/wgt/js/build.js \
          res/wgt/js/keys.local.js res/wgt/css/launcher.css res/wgt/icon.png \
-         bin/APLOverlay.dll bin/APLBoot.dll shared/res/APLOverlay.png res/icons/alexa-orb.svg res/icons/check.svg; do
+         bin/APLOverlay.dll bin/APLBoot.dll bin/Bridge.dll shared/res/APLOverlay.png res/icons/alexa-orb.svg res/icons/check.svg; do
     grep -q " $f\$" <<<"$LIST" || { echo "$f is missing from the .wgt" >&2; exit 1; }
 done
 (cd "$OUT" && sha256sum "$NAME" > SHA256SUMS-wgt.txt)

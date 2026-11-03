@@ -20,6 +20,9 @@
     <Compile Remove="boot\**" />
     <None Remove="boot\**" />
     <ProjectReference Include="boot\APLBoot.csproj" />
+    <Compile Remove="bridge\**" />
+    <None Remove="bridge\**" />
+    <ProjectReference Include="bridge\Bridge.csproj" />
   </ItemGroup>
 
 </Project>
