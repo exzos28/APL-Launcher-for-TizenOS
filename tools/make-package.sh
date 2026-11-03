@@ -90,7 +90,7 @@ echo "$LIST" | grep -v -E " (images|res/icons|res/wgt/images)/"
 for f in config.xml tizen-manifest.xml author-signature.xml signature1.xml \
          res/wgt/config.xml res/wgt/index.html res/wgt/bridge/service.js res/wgt/js/boot.js res/wgt/js/build.js \
          res/wgt/js/keys.local.js res/wgt/css/launcher.css res/wgt/icon.png \
-         bin/APLOverlay.dll shared/res/APLOverlay.png res/icons/alexa-orb.svg res/icons/check.svg; do
+         bin/APLOverlay.dll bin/APLBoot.dll shared/res/APLOverlay.png res/icons/alexa-orb.svg res/icons/check.svg; do
     grep -q " $f\$" <<<"$LIST" || { echo "$f is missing from the .wgt" >&2; exit 1; }
 done
 (cd "$OUT" && sha256sum "$NAME" > SHA256SUMS-wgt.txt)

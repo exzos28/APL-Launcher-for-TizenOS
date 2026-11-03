@@ -14,4 +14,12 @@
     <DebugType>None</DebugType>
   </PropertyGroup>
 
+  <!-- APLauncher.Boot (boot/) is its own assembly in the same .tpk: not compiled into the Overlay,
+       built and copied to bin/ through the reference. -->
+  <ItemGroup>
+    <Compile Remove="boot\**" />
+    <None Remove="boot\**" />
+    <ProjectReference Include="boot\APLBoot.csproj" />
+  </ItemGroup>
+
 </Project>

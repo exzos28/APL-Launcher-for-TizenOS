@@ -14,7 +14,21 @@
     <metadata key="http://tizen.org/metadata/prefer_dotnet_aot" value="true" />
     <splash-screens />
   </ui-application>
+  <!-- After a full start-up, puts the launcher on screen (boot/Program.cs). A .NET service: the
+       web bridge's on-boot is dropped in a hybrid package. -->
+  <service-application appid="APLauncher.Boot"
+                       exec="APLBoot.dll"
+                       type="dotnet"
+                       multiple="false"
+                       taskmanage="false"
+                       nodisplay="true"
+                       on-boot="true"
+                       auto-restart="false"
+                       api-version="9.0">
+    <label>APL Boot</label>
+  </service-application>
   <privileges>
+    <privilege>http://tizen.org/privilege/appmanager.launch</privilege>
     <privilege>http://tizen.org/privilege/internet</privilege>
     <privilege>http://tizen.org/privilege/bluetooth</privilege>
     <privilege>http://tizen.org/privilege/network.get</privilege>
