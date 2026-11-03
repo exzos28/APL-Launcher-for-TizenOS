@@ -35,10 +35,10 @@ namespace APL.Bridge
         // The platform's message port API itself, to read its error codes (MessagePort.Send only says
         // "Can't send message"): TIZEN_ERROR_IO_ERROR -5, INVALID_PARAMETER -22, OUT_OF_MEMORY -12,
         // PORT_NOT_FOUND / CERTIFICATE_NOT_MATCH / MAX_EXCEEDED / RESOURCE_UNAVAILABLE = 0xfe4f0000 | 1..4.
-        [DllImport("libcapi-message-port.so.0")] private static extern int message_port_check_trusted_remote_port(string appId, string port, out bool exist);
-        [DllImport("libcapi-message-port.so.0")] private static extern int message_port_check_remote_port(string appId, string port, out bool exist);
-        [DllImport("libcapi-message-port.so.0")] private static extern int message_port_send_trusted_message(string appId, string port, IntPtr bundle);
-        [DllImport("libcapi-message-port.so.0")] private static extern int message_port_send_message(string appId, string port, IntPtr bundle);
+        [DllImport("libcapi-message-port.so.1")] private static extern int message_port_check_trusted_remote_port(string appId, string port, out bool exist);
+        [DllImport("libcapi-message-port.so.1")] private static extern int message_port_check_remote_port(string appId, string port, out bool exist);
+        [DllImport("libcapi-message-port.so.1")] private static extern int message_port_send_trusted_message(string appId, string port, IntPtr bundle);
+        [DllImport("libcapi-message-port.so.1")] private static extern int message_port_send_message(string appId, string port, IntPtr bundle);
         private bool diagnosed;
 
         private MessagePort port;
@@ -196,6 +196,29 @@ namespace APL.Bridge
                 Note("direct send: trusted rc " + Code(rt) + ", plain rc " + Code(rp));
             }
             catch (Exception ex) { Note("direct send: " + ex.GetType().Name + " " + ex.Message); }
+            // The managed API with other ports than the listening one
+            foreach (bool trusted in new[] { true, false })
+            {
+                try
+                {
+                    using (var other = new MessagePort("APL_BRIDGE_DIAG_" + (trusted ? "T" : "P"), trusted))
+                    {
+                        other.Listen();
+                        var m = new Bundle();
+                        m.AddItem("id", "diag-" + (trusted ? "trusted" : "plain"));
+                        m.AddItem("status", "0"); m.AddItem("part", "0"); m.AddItem("parts", "1"); m.AddItem("body", "");
+                        other.Send(m, LauncherId, ReplyPort);
+                        Note("managed send through a new " + (trusted ? "trusted" : "plain") + " port: ok");
+                    }
+                }
+                catch (Exception ex) { Note("managed send through a new " + (trusted ? "trusted" : "plain") + " port: " + ex.GetType().Name + " " + ex.Message); }
+            }
+            try
+            {
+                foreach (bool trusted in new[] { true, false })
+                    Note("RemotePort(" + LauncherId + ", " + ReplyPort + ", trusted " + trusted + ").IsRunning: " + new RemotePort(LauncherId, ReplyPort, trusted).IsRunning());
+            }
+            catch (Exception ex) { Note("RemotePort: " + ex.GetType().Name + " " + ex.Message); }
         }
 
         private static string path(Exception ex) { return ex.InnerException != null ? ex.InnerException.Message : "-"; }
