@@ -85,12 +85,13 @@ cp "$WGT" "$OUT/$NAME"
 # One listing, then a here-string: grep -q on a pipe would kill unzip with SIGPIPE (pipefail).
 LIST="$(unzip -l "$OUT/$NAME")"
 echo "$LIST" | grep -v -E " (images|res/icons|res/wgt/images)/"
-for f in config.xml index.html bridge/service.js js/boot.js js/build.js js/keys.local.js css/launcher.css icon.png author-signature.xml signature1.xml; do
+# Hybrid layout: the web app under res/wgt/, the Overlay at the root (bin/, shared/res/, res/icons/).
+# packaging/apps2samsung/*.json patches res/wgt/js/keys.local.js: keep the path in sync.
+for f in config.xml tizen-manifest.xml author-signature.xml signature1.xml \
+         res/wgt/config.xml res/wgt/index.html res/wgt/bridge/service.js res/wgt/js/boot.js res/wgt/js/build.js \
+         res/wgt/js/keys.local.js res/wgt/css/launcher.css res/wgt/icon.png \
+         bin/APLOverlay.dll shared/res/APLOverlay.png res/icons/alexa-orb.svg res/icons/check.svg; do
     grep -q " $f\$" <<<"$LIST" || { echo "$f is missing from the .wgt" >&2; exit 1; }
-done
-# The Overlay's files, wherever tz pack puts them in the hybrid package
-for f in APLOverlay.dll tizen-manifest.xml APLOverlay.png alexa-orb.svg; do
-    grep -q "$f" <<<"$LIST" || { echo "$f (APL Overlay) is missing from the .wgt" >&2; exit 1; }
 done
 (cd "$OUT" && sha256sum "$NAME" > SHA256SUMS-wgt.txt)
 ls -l "$OUT"

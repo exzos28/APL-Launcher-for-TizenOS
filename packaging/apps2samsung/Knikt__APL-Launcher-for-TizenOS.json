@@ -10,7 +10,7 @@
   ],
   "user_settings": {
     "help_url": "https://github.com/Knikt/APL-Launcher-for-TizenOS/blob/main/docs/installation.md#optional-api-keys",
-    "file": "js/keys.local.js",
+    "file": "res/wgt/js/keys.local.js",
     "fields": [
       {
         "key": "tmdb",
