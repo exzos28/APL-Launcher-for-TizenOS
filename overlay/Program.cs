@@ -165,15 +165,12 @@ namespace APL
                 samsungHomeWanted = false;                 // the user went elsewhere: back to normal
             }
             if (!returnToLauncher || !IsSamsungHome(front)) return;
-            Note("Samsung's home in front (" + front + ")");
             if (homeCheck == null)
             {
                 homeCheck = new Timer(350);
                 homeCheck.Tick += delegate
                 {
-                    string now = FullscreenApp();
-                    if (returnToLauncher && !samsungHomeWanted && IsSamsungHome(now)) { Note("still there after 350 ms: launcher"); OpenLauncher(); }
-                    else Note("gone within 350 ms (" + now + ")");
+                    if (returnToLauncher && !samsungHomeWanted && IsSamsungHome(FullscreenApp())) OpenLauncher();
                     return false;
                 };
             }
@@ -233,7 +230,6 @@ namespace APL
 
         private async Task HomePressed(Vetro.KeyEvent key)
         {
-            Note("Home from Vetro, " + key.Foreground + " in front");
             if (panel.IsOpen)
             {
                 panel.Close();

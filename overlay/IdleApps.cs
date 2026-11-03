@@ -10,17 +10,19 @@ namespace APL
     /// app it opened until its 1.8 GB run out, and then everything slows down. The app in front is never
     /// closed. Only the launcher's apps and those once seen in front count, plus Samsung's own that open
     /// by themselves: services stay, and so do the launcher, Samsung's home, the TV inputs and what
-    /// receives AirPlay.
+    /// receives AirPlay. Samsung's own that were never in front close after a minute: they reopen at
+    /// every wake-up and hold about 250 MB that the app being watched needs.
     /// </summary>
     internal sealed class IdleApps
     {
         private const uint CheckMs = 60000;
+        private const int UnusedMinutes = 1;
         private static readonly string[] Never = { "APLauncher.", "apl.launcher.", "vetrotvapp", "com.samsung.tv.csfs", "com.samsung.tv.home.sidebar", "org.tizen.tv-viewer" };
         private static readonly string[] Receivers = { "airplay", "ScreenMirroring", "multiscreen" };
-        // Samsung's that open by themselves, as in the launcher's bootCleanup
+        // Samsung's that open by themselves, as in the launcher's bootCleanup (not art-app: The Frame's Art Mode needs it)
         private static readonly HashSet<string> SelfOpening = new HashSet<string> {
             "com.samsung.tv.home.media", "com.samsung.tv.mycontents", "com.samsung.tv.quicklaunch", "org.tizen.browser",
-            "com.samsung.tv.bixbycapsuleviewer", "org.tizen.art-app", "com.samsung.tv.aria-video", "com.samsung.tv.cobalt-yt",
+            "com.samsung.tv.bixbycapsuleviewer", "com.samsung.tv.aria-video", "com.samsung.tv.cobalt-yt",
             "MCmYXNxgcu.DisneyPlus", "org.tizen.netflix-app", "org.tizen.primevideo", "HEPsqFNie0.tvplusstandalone" };
         private static readonly Regex Running = new Regex(@"^\s*([A-Za-z0-9_.-]+) \(\d+\)\s*$");
 
@@ -93,7 +95,8 @@ namespace APL
                     DateTime used;
                     // Already in the background when this app started: its time starts now
                     if (!lastUsed.TryGetValue(id, out used)) { lastUsed[id] = now; continue; }
-                    if ((now - used).TotalMinutes >= minutes) idle.Add(id);
+                    int limit = SelfOpening.Contains(id) && !seenInFront.Contains(id) ? Math.Min(UnusedMinutes, minutes) : minutes;
+                    if ((now - used).TotalMinutes >= limit) idle.Add(id);
                 }
                 if (idle.Count == 0) return;
                 string command = "";
