@@ -43,7 +43,7 @@ namespace APL.Bridge
                 port = new MessagePort(PortName, true);
                 port.MessageReceived += OnMessage;
                 port.Listen();
-                Note("listening on " + PortName);
+                Note("listening on " + PortName + ", main thread " + Environment.CurrentManagedThreadId + ", context " + (SynchronizationContext.Current?.GetType().Name ?? "none"));
             }
             catch (Exception ex) { Note("listen failed: " + ex.Message); }
             idle = new Timer(delegate { Note("idle, exiting"); try { Exit(); } catch (Exception) { } }, null, IdleAfter, Timeout.InfiniteTimeSpan);
@@ -65,20 +65,29 @@ namespace APL.Bridge
                 Answer(id, 404, "{\"error\":\"not relayed\"}");
                 return;
             }
-            // Off the main loop: an /exec can take a while, and other requests keep coming meanwhile
-            Task.Run(async () =>
+            Relay(id, method, path, body);
+        }
+
+        /// <summary>
+        /// The request to Vetro is awaited, not run on a thread of its own: the continuation comes back
+        /// on the app's main loop (Tizen's synchronization context), where the message port has to be
+        /// used — sent from a pool thread, every answer failed with "Can't send message".
+        /// </summary>
+        private async void Relay(string id, string method, string path, string body)
+        {
+            int status;
+            string text;
+            try
             {
-                try
-                {
-                    var (status, text) = await Request(method, path, body);
-                    Answer(id, status, text);
-                }
-                catch (Exception ex)
-                {
-                    Note("Vetro unreachable: " + ex.Message);
-                    Answer(id, 502, "{\"ok\":false,\"error\":\"Vetro unreachable: " + ex.Message.Replace("\\", "\\\\").Replace("\"", "'") + "\"}");
-                }
-            });
+                (status, text) = await Request(method, path, body);
+            }
+            catch (Exception ex)
+            {
+                Note("Vetro unreachable: " + ex.Message);
+                status = 502;
+                text = "{\"ok\":false,\"error\":\"Vetro unreachable: " + ex.Message.Replace("\\", "\\\\").Replace("\"", "'") + "\"}";
+            }
+            Answer(id, status, text);
         }
 
         private void Answer(string id, int status, string body)
@@ -99,7 +108,11 @@ namespace APL.Bridge
                         m.AddItem("body", body.Substring(i * Chunk, Math.Min(Chunk, body.Length - i * Chunk)));
                         port.Send(m, LauncherId, ReplyPort);
                     }
-                    catch (Exception ex) { Note("answer " + id + ": " + ex.Message); return; }
+                    catch (Exception ex)
+                    {
+                        Note("answer " + id + " (" + path(ex) + "), thread " + Environment.CurrentManagedThreadId + ": " + ex.GetType().Name + " " + ex.Message + " 0x" + ex.HResult.ToString("x"));
+                        return;
+                    }
                 }
             }
         }
@@ -130,6 +143,8 @@ namespace APL.Bridge
                 return (status, split < 0 ? "" : text.Substring(split + 4));
             }
         }
+
+        private static string path(Exception ex) { return ex.InnerException != null ? ex.InnerException.Message : "-"; }
 
         private static string Item(Bundle b, string key)
         {
